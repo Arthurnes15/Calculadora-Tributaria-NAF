@@ -15,6 +15,9 @@ export default function CalculoPJ() {
   const [mensagemEnvio, setMensagemEnvio] = useState("");
   const [profissao, setProfissao] = useState("psicologo");
   const [showTooltipRenda, setShowTooltipRenda] = useState(false);
+  // ADICIONADO: tooltip e valor do campo de pró-labore/folha (Fator R)
+  const [showTooltipFolha, setShowTooltipFolha] = useState(false);
+  const [folhaMensal, setFolhaMensal] = useState("");
 
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
@@ -29,6 +32,17 @@ export default function CalculoPJ() {
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  // ADICIONADO: profissões que usam Fator R
+  const profissoesFatorR = ["medico", "dentista"];
+
+  // ADICIONADO: Fator R = folha mensal ÷ faturamento mensal
+  const calcularFatorR = (folha, rendaMensal) => {
+  if (!rendaMensal || rendaMensal <= 0) return null;
+  const fatorR = folha / rendaMensal;
+  const anexo = fatorR >= 0.28 ? "III" : "V";   
+  return { fatorR, anexo };
+ };
 
   const handleRendaChange = (e) => {
     const valor = parseFloat(e.target.value);
@@ -48,6 +62,21 @@ export default function CalculoPJ() {
       return;
     }
 
+     // ADICIONADO: Fator R, só para as profissões da lista
+    let infoFatorR = null;
+    if (profissoesFatorR.includes(profissao)) {
+      const folhaNum = parseFloat(folhaMensal);
+      if (isNaN(folhaNum)) {
+        setResultado("Informe a despesa mensal com pró-labore/folha de pagamento.");
+        return;
+      }
+      infoFatorR = calcularFatorR(folhaNum, rendaNum);
+      if (!infoFatorR) {
+        setResultado("O faturamento mensal deve ser maior que zero.");
+        return;
+      }
+    }
+
     try {
       const response = await api.post("/calculos", {
         tipoProfissao: profissao,
@@ -63,6 +92,11 @@ export default function CalculoPJ() {
       if (profissao === "advogado") {
         simples = rendaNum * 0.045;
         aliquota = "4,5%";
+      } else if (infoFatorR) {
+        // ADICIONADO: Anexo III = 6%, Anexo V = 15,5% (1ª faixa)
+        const taxa = infoFatorR.anexo === "III" ? 0.06 : 0.155;
+        simples = rendaNum * taxa;
+        aliquota = infoFatorR.anexo === "III" ? "6%" : "15,5%";
       } else {
         simples = rendaNum * 0.06;
         aliquota = "6%";
@@ -78,7 +112,10 @@ export default function CalculoPJ() {
         aliquota,
         salarioBase,
         inss,
-        total: impostoPJ,
+        total: infoFatorR ? simples + inss : impostoPJ,
+       // ADICIONADO: ficam undefined nas profissões sem Fator R
+       fatorR: infoFatorR?.fatorR,
+       anexo: infoFatorR?.anexo,
       });
 
       setMostrarEmail(false);
@@ -116,6 +153,8 @@ export default function CalculoPJ() {
                 <option value="psicologo">Psicólogo(a)</option>
                 <option value="arquiteto">Arquiteto(a)</option>
                 <option value="advogado">Advogado(a)</option>
+                <option value="medico">Medico(a)</option>
+                <option value="dentista">Dentista</option>
               </select>
             </div>
 
@@ -135,7 +174,27 @@ export default function CalculoPJ() {
               </div>
               <input type="number" value={renda} onChange={handleRendaChange} max="15000" placeholder="Ex: 3000" className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm" />
               {erro && <p className="text-naf-red text-sm mt-1 font-medium">{erro}</p>}
-            </div>
+            </div>  
+
+             {/* ADICIONADO: campo que só aparece para profissões com Fator R */}
+             {profissoesFatorR.includes(profissao) && (
+             <div>
+               <div className="relative flex items-center gap-1 mb-1">
+                 <label className="text-sm font-medium text-naf-blue">Despesa mensal com pró-labore / folha de pagamento (R$)</label>
+                 <button type="button" className="text-naf-gray hover:text-naf-blue focus:outline-none" onMouseEnter={() => setShowTooltipFolha(true)} onMouseLeave={() => setShowTooltipFolha(false)}>
+                   <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                   </svg>
+                 </button>
+                 {showTooltipFolha && (
+                   <div className="absolute z-10 w-64 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg -top-2 left-full ml-2 border border-naf-gray/30">
+                     É o que você paga por mês em salários, encargos e pró-labore. Esse valor dividido pelo faturamento mensal forma o Fator R: com 28% ou mais, aplica-se o Anexo III; abaixo disso, o Anexo V.
+                   </div>
+                 )}
+               </div>
+               <input type="number" value={folhaMensal} onChange={(e) => setFolhaMensal(e.target.value)} placeholder="Ex: 2800" className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm" />
+             </div> 
+           )}
 
             <div className={`transition-all duration-[700ms] ease-out delay-[800ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
               <button onClick={calcularPJ} className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] hover:scale-105 transition-all duration-[400ms] ease-out shadow-md">
@@ -153,6 +212,13 @@ export default function CalculoPJ() {
                       <p><strong>Simples Nacional ({resultado.aliquota}):</strong> R$ {resultado.simples.toFixed(2)}</p>
                       <p><strong>Pró-labore base:</strong> R$ {resultado.salarioBase.toFixed(2)}</p>
                       <p><strong>INSS (11%):</strong> R$ {resultado.inss.toFixed(2)}</p>
+                      {/* ADICIONADO: só aparece quando há Fator R */}
+                      {resultado.fatorR !== undefined && (
+                        <>
+                          <p><strong>Fator R:</strong> {(resultado.fatorR * 100).toFixed(2)}%</p>
+                          <p><strong>Anexo aplicado:</strong> Anexo {resultado.anexo}</p>
+                        </>
+                      )}
                     </div>
                     <p className="text-lg font-bold text-naf-red mt-3 pt-3 border-t border-naf-gray/30">
                       Total a pagar: R$ {resultado.total.toFixed(2)}
