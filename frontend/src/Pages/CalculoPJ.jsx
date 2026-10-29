@@ -81,7 +81,9 @@ export default function CalculoPJ() {
       const response = await api.post("/calculos", {
         tipoProfissao: profissao,
         faturamento: rendaNum,
-        custos: 0
+        custos: 0,
+         // ADICIONADO: o servidor usa a folha para o Fator R
+        folhaMensal: infoFatorR ? parseFloat(folhaMensal) : undefined
       });
 
       const { impostoPJ } = response.data.calculo;

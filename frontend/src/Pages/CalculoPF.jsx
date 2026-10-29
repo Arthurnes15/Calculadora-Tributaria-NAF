@@ -88,7 +88,9 @@
         const response = await api.post("/calculos", {
           tipoProfissao: profissao,
           faturamento: rendaNum,
-          custos: custosNum
+          custos: custosNum,
+           // ADICIONADO: o servidor usa a folha para o Fator R
+        folhaMensal: infoFatorR ? parseFloat(folhaMensal) : undefined
         });
 
         const { impostoPF } = response.data.calculo;
