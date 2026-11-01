@@ -67,6 +67,27 @@ export default function Navbar() {
               >
                 Histórico
               </button>
+
+              <div className="h-5 w-px bg-naf-gray/50 opacity-40 mx-0.5" />
+
+              <button
+                onClick={() => navigate('/faq')}
+                className="px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap"
+              >
+                FAQ
+              </button>
+
+               <div className="h-5 w-px bg-naf-gray/50 opacity-40 mx-0.5" />
+
+              <button
+                onClick={() => navigate('/sobre')}
+                className="px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap"
+              >
+                Sobre
+              </button>
+
+              <div className="h-5 w-px bg-naf-gray/50 opacity-40 mx-0.5" />
+
             </div>
 
             <button
