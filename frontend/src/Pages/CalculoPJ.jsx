@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import api from "../services/api";
 export default function CalculoPJ() {
   const [renda, setRenda] = useState("");
   const [erro, setErro] = useState("");
+  const [errors, setErrors] = useState({});
   const [resultado, setResultado] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -15,6 +16,9 @@ export default function CalculoPJ() {
   const [mensagemEnvio, setMensagemEnvio] = useState("");
   const [profissao, setProfissao] = useState("psicologo");
   const [showTooltipRenda, setShowTooltipRenda] = useState(false);
+
+  const inputRendaMensalRef = useRef(null);
+  const inputEmailRef = useRef(null);
 
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
@@ -30,24 +34,35 @@ export default function CalculoPJ() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleRendaChange = (e) => {
-    const valor = parseFloat(e.target.value);
-    if (valor > 15000) {
-      setErro("O valor máximo permitido é R$ 15.000,00");
-      setRenda(15000);
-    } else {
-      setErro("");
-      setRenda(e.target.value);
+  const rendaNum = parseFloat(renda);
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!rendaNum) {
+      inputRendaMensalRef.current.focus();
+      newErrors.renda = "Por favor, preencha o campo de renda.";
+    } else if (rendaNum > 15000) {
+      inputRendaMensalRef.current.focus();
+      newErrors.renda = "A renda mensal máxima permitido é R$ 15.000,00";
+    } else if (isNaN(rendaNum)) {
+      inputRendaMensalRef.current.focus();
+      newErrors.custos = "Por favor, insira valores válidos."; 
     }
+
+    return newErrors;
   };
 
   const calcularPJ = async () => {
-    const rendaNum = parseFloat(renda);
-    if (isNaN(rendaNum)) {
-      setResultado("Por favor, insira um valor válido.");
+    const formErrors = validateForm();
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
       return;
     }
 
+    setErrors({});
+    
     try {
       const response = await api.post("/calculos", {
         tipoProfissao: profissao,
@@ -92,11 +107,21 @@ export default function CalculoPJ() {
   };
 
   const enviarEmail = () => {
-    if (!email.includes("@")) {
-      setMensagemEnvio("Por favor, insira um e-mail válido.");
+    const newErros = {};
+    if (!email) {
+      inputEmailRef.current.focus();
+      newErros.email = "Por favor, preencha o campo de email";
+      setErrors(newErros);
+      return;
+    } else if (!email.includes("@")) {
+      inputEmailRef.current.focus();
+      newErros.email = "Por favor, insira um e-mail válido."
+      setErrors(newErros);
       return;
     }
-    setMensagemEnvio(`Resultados enviados para ${email} com sucesso!`);
+
+    setMensagemEnvio(`Resultados simulados e enviados para ${email} com sucesso!`);
+    setErrors({});
     setEmail("");
   };
 
@@ -111,8 +136,8 @@ export default function CalculoPJ() {
 
           <div className="space-y-4">
             <div className={`transition-all duration-[700ms] ease-out delay-[500ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
-              <label className="block mb-1 text-sm font-medium text-naf-blue">Profissão</label>
-              <select value={profissao} onChange={(e) => setProfissao(e.target.value)} className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition delay-[80ms] duration-[400ms] ease-in-out">
+              <label htmlFor="occupation" className="block mb-1 text-sm font-medium text-naf-blue">Profissão</label>
+              <select id="occupation" value={profissao} onChange={(e) => setProfissao(e.target.value)} className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue outline-none transition delay-[80ms] duration-[400ms] ease-in-out">
                 <option value="psicologo">Psicólogo(a)</option>
                 <option value="arquiteto">Arquiteto(a)</option>
                 <option value="advogado">Advogado(a)</option>
@@ -121,24 +146,40 @@ export default function CalculoPJ() {
 
             <div className={`transition-all duration-[700ms] ease-out delay-[600ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
               <div className="relative flex items-center gap-1 mb-1">
-                <label className="text-sm font-medium text-naf-blue">Faturamento Mensal (R$)</label>
-                <button type="button" className="text-naf-gray hover:text-naf-blue focus:outline-none" onMouseEnter={() => setShowTooltipRenda(true)} onMouseLeave={() => setShowTooltipRenda(false)}>
+                <label htmlFor="faturamento_mensal" className="text-sm font-medium text-naf-blue">Faturamento Mensal (R$)</label>
+                <button type="button" 
+                  className="text-naf-gray hover:text-naf-blue outline-none focus:ring-2 focus:ring-naf-blue focus:rounded-2xl" 
+                  onClick={() => setShowTooltipRenda((visible) => !visible)} 
+                  onMouseEnter={() => setShowTooltipRenda(true)} 
+                  onMouseLeave={() => setShowTooltipRenda(false)}
+                  aria-label="Visualizar a definição de faturamento mensal"
+                  >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {showTooltipRenda && (
-                  <div className="absolute z-10 w-64 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg -top-2 left-full ml-2 border border-naf-gray/30">
+                  <div className="absolute z-10 w-64 h-20 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-15 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
                     É o valor total bruto recebido no mês pelas notas fiscais emitidas no seu CNPJ.
                   </div>
                 )}
               </div>
-              <input type="number" value={renda} onChange={handleRendaChange} max="15000" placeholder="Ex: 3000" className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm" />
-              {erro && <p className="text-naf-red text-sm mt-1 font-medium">{erro}</p>}
+              <input id="faturamento_mensal" 
+                type="number" 
+                value={renda} 
+                ref={inputRendaMensalRef}
+                onChange={(e) => setRenda(e.target.value)} 
+                max="15000" 
+                placeholder="Ex: 3000" 
+                className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.renda ? "focus:ring-naf-red" : ""} outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm`}
+                aria-invalid={errors.renda}
+                aria-errormessage="erro_faturamento_mensal"
+              />
+              {errors.renda && <p id="erro_faturamento_mensal" className="text-naf-red text-sm mt-1 font-medium">{errors.renda}</p>}
             </div>
 
             <div className={`transition-all duration-[700ms] ease-out delay-[800ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
-              <button onClick={calcularPJ} className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] hover:scale-105 transition-all duration-[400ms] ease-out shadow-md">
+              <button onClick={calcularPJ} className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] hover:scale-105 focus:ring-4 focus:ring-naf-red outline-none transition-all duration-[400ms] ease-out shadow-md">
                 Calcular
               </button>
             </div>
@@ -167,7 +208,17 @@ export default function CalculoPJ() {
 
                       {mostrarEmail && (
                         <div className="mt-4 space-y-3">
-                          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Digite seu e-mail" className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none text-sm" />
+                          <label htmlFor="email">Email</label>
+                          <input type="email" 
+                            value={email} 
+                            ref={inputEmailRef}
+                            onChange={(e) => setEmail(e.target.value)} 
+                            placeholder="Digite seu e-mail" 
+                            className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.email ? "focus:ring-naf-red" : ""} outline-none text-sm`} 
+                            aria-invalid={errors.email}
+                            aria-errormessage="erro_email"
+                          />
+                          {errors.email && <p id="erro_email" className="text-naf-red text-sm font-medium">{errors.email}</p>}
                           <button onClick={enviarEmail} className="w-full bg-naf-red text-white py-2 rounded-xl hover:bg-[#a62b18] transition text-sm font-bold shadow-sm">Enviar resultados</button>
                         </div>
                       )}
