@@ -343,11 +343,10 @@ function CalculoPF() {
                 </div>
               )}
           </div>
-        </div>
-      </main>
-      <Footer />
-    </div>
-  );
-}
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-export default CalculoPF;
+  export default CalculoPF;

@@ -23,6 +23,7 @@ function App() {
         <Route path="/RecuperarSenha" element={<RecuperarSenha />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/sobre" element={<Sobre />} />
+        <Route path="*" element={<NotFound />} />
         
         {/* Rotas Logadas */}
         <Route path="/Home" element={<Home />} />
@@ -30,7 +31,6 @@ function App() {
         <Route path="/calculo-pj" element={<CalculoPJ />} />
         <Route path="/comparativo" element={<Comparativo />} />
         <Route path="/historico" element={<Historico />} />
-        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
