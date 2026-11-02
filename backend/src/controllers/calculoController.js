@@ -3,7 +3,7 @@ const prisma = require('../config/prisma');
 const calculoController = {
   create: async (req, res) => {
     try {
-      const { tipoProfissao, faturamento, custos } = req.body;
+      const { tipoProfissao, faturamento, custos, folhaMensal } = req.body;
       const userId = req.userId;
 
       if (!tipoProfissao || faturamento === undefined) {
@@ -39,6 +39,15 @@ const calculoController = {
       let simples = 0;
       if (tipoProfissao.toLowerCase() === "advogado") {
         simples = rendaNum * 0.045; // Anexo IV: 4,5%
+      } else if (["medico", "dentista"].includes(tipoProfissao.toLowerCase())) {
+       // ADICIONADO: Fator R = folha mensal ÷ faturamento mensal
+       const folhaNum = parseFloat(folhaMensal);
+       if (isNaN(folhaNum) || rendaNum <= 0) {
+         return res.status(400).json({ error: "Informe a despesa mensal com pró-labore/folha e um faturamento maior que zero." });
+       }
+       const fatorR = folhaNum / rendaNum;
+       // Anexo III (6%) se Fator R >= 28%; Anexo V (15,5%) se abaixo
+       simples = rendaNum * (fatorR >= 0.28 ? 0.06 : 0.155);
       } else {
         // Psicólogo e Arquiteto - Anexo III (Considerando o Fator R ativo no front)
         simples = rendaNum * 0.06; // 6%

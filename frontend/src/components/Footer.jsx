@@ -11,6 +11,10 @@ export default function Footer() {
           <p className="text-sm text-naf-gray">
             Desenvolvido por <span className="font-medium text-white">Alisson Almeida de Oliveira</span>
           </p>
+          <p className="text-sm text-naf-gray">
+            Continuado por <span className="font-medium text-white">Pedro Henrique, Arthur teixeira e Jose Erick</span>
+          </p>
+
         </div>
 
         {/* Links Úteis */}

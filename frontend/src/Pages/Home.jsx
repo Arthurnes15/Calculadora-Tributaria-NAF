@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 export default function Home() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
+  const [errors, setErrors] = useState({});
   const token = localStorage.getItem("token");
 
   const [formData, setFormData] = useState({
@@ -14,6 +15,15 @@ export default function Home() {
     mensagem: "",
   });
   const [enviando, setEnviando] = useState(false);
+  /*
+    As variáveis abaixo (inputNomeRef, inputEmailRef, inputMensagemRef), são usadas no alerta das mensagens de erro pelos leitores de tela. O hook useRef pode ser usado particularmente para manipular a DOM. Nesse contexto de acessiblidade, os leitores de tela só conseguem ler as mensagens de erro se os inputs (com erros) estiverem com o atributo focus ativo, portanto, na ocorrência de algum erro, através das variáveis abaixo o atributo focus é ativado nos respectivos inputs.
+  
+    Para mais detalhes do hook useRef, consulte sua documentação no link abaixo: 
+    https://react.dev/reference/react/useRef
+  */
+  const inputNomeRef = useRef(null);
+  const inputEmailRef = useRef(null);
+  const inputMensagemRef = useRef(null);
 
   useEffect(() => {
     if (!token) {
@@ -32,12 +42,45 @@ export default function Home() {
     navigate(path);
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.nome) {
+      inputNomeRef.current.focus();
+      newErrors.nome = "Por favor, preencha o campo de nome.";
+    }
+  
+    if (!formData.email) {
+      inputEmailRef.current.focus();
+      newErrors.email = "Por favor, preencha o campo de email.";
+    } else if (!formData.email.includes("@") || !formData.email.includes(".")) {
+      inputEmailRef.current.focus();
+      newErrors.email = "Por favor, insira um e-mail válido"; 
+    }
+
+    if (!formData.mensagem) {
+      inputMensagemRef.current.focus();
+      newErrors.mensagem = "Por favor, preencha o campo de mensagem";
+    }
+
+    return newErrors;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const formErrors = validateForm();
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
+    setErrors({});
+
     setEnviando(true);
 
     try {
@@ -219,10 +262,13 @@ export default function Home() {
                   type="text"
                   name="nome"
                   value={formData.nome}
+                  ref={inputNomeRef}
                   onChange={handleChange}
-                  required
-                  className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue outline-none transition"
+                  className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.nome ? "focus:ring-naf-red" : ""} outline-none transition`}
+                  aria-invalid={errors.nome}
+                  aria-errormessage="erro_nome"
                 />
+                {errors.nome && <p id="erro_nome" className="text-naf-red text-sm mt-1 font-medium">{errors.nome}</p>}
               </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-naf-blue mb-1">E-mail</label>
@@ -231,10 +277,13 @@ export default function Home() {
                   type="email"
                   name="email"
                   value={formData.email}
+                  ref={inputEmailRef}
                   onChange={handleChange}
-                  required
-                  className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue outline-none transition"
+                  className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.email ? "focus:ring-naf-red" : ""} outline-none transition`}
+                  aria-invalid={errors.email}
+                  aria-errormessage="erro_email"
                 />
+                {errors.email && <p id="erro_email" className="text-naf-red text-sm mt-1 font-medium">{errors.email}</p>}
               </div>
             </div>
             <div>
@@ -243,11 +292,14 @@ export default function Home() {
                 id="message"
                 name="mensagem"
                 value={formData.mensagem}
+                ref={inputMensagemRef}
                 onChange={handleChange}
-                required
                 rows="3"
-                className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue outline-none transition resize-none"
+                className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.mensagem ? "focus:ring-naf-red" : ""} outline-none transition resize-none`}
+                aria-invalid={errors.mensagem}
+                aria-errormessage="erro_mensagem"
               ></textarea>
+              {errors.mensagem && <p id="erro_mensagem" className="text-naf-red text-sm mt-1 font-medium">{errors.mensagem}</p>}
             </div>
             <button
               type="submit"

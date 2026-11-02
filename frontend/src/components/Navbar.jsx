@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Navbar() {
@@ -79,6 +79,27 @@ export default function Navbar() {
               >
                 Histórico
               </button>
+
+              <div className="h-5 w-px bg-naf-gray/50 opacity-40 mx-0.5" />
+
+              <button
+                onClick={() => navigate('/faq')}
+                className="px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap"
+              >
+                FAQ
+              </button>
+
+               <div className="h-5 w-px bg-naf-gray/50 opacity-40 mx-0.5" />
+
+              <button
+                onClick={() => navigate('/sobre')}
+                className="px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap"
+              >
+                Sobre
+              </button>
+
+              <div className="h-5 w-px bg-naf-gray/50 opacity-40 mx-0.5" />
+
             </div>
 
             <button
@@ -90,8 +111,8 @@ export default function Navbar() {
             </button>
           </div>
         </div>
-
-        <nav className="w-full">
+        {isMenuMobileVisible && (
+          <nav className="w-full">
           <div className="flex items-center flex-col py-2">
             <button onClick={() => navigate('/Home')}
               className="w-1/3 px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap">
@@ -118,12 +139,22 @@ export default function Navbar() {
                 Histórico
             </button>
             <div className="w-25 h-0.5 bg-naf-gray/50 opacity-40 mx-0.5" />
+            <button onClick={() => navigate('/faq')}
+              className="w-1/3 px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap">
+                FAQ
+            </button>
+            <div className="w-25 h-0.5 bg-naf-gray/50 opacity-40 mx-0.5" />
+            <button onClick={() => navigate('/sobre')}
+              className="w-1/3 px-2.5 py-2 rounded-lg text-sm font-medium text-naf-light hover:bg-naf-red hover:text-white transition-all duration-300 cursor-pointer whitespace-nowrap">
+                Sobre
+            </button>
             <button onClick={() => handleLogout()}
             className="w-1/3 mt-2 px-4 py-2 bg-naf-red border-none text-naf-light rounded-lg text-sm font-bold">
               Sair
             </button>
           </div>
         </nav>
+        )}
       </div>
       
     </nav>
