@@ -33,9 +33,9 @@ export default function FAQ() {
     <div className="flex flex-col min-h-screen bg-naf-light">
       <Navbar />
 
-      <main className="flex-grow max-w-4xl mx-auto w-full px-4 py-12">
+      <main className="grow max-w-4xl mx-auto w-full px-4 py-12">
         <div className="mb-8 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-naf-red">FAQ</p>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-red-700">FAQ</p>
           <h1 className="mt-3 text-4xl font-bold text-naf-blue">Perguntas frequentes</h1>
         </div>
 
@@ -43,7 +43,7 @@ export default function FAQ() {
           {faqs.map((faq, index) => (
             <div key={index} className="rounded-2xl border border-naf-gray/20 bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-naf-blue">{faq.pergunta}</h2>
-              <p className="mt-3 text-base leading-relaxed text-naf-gray">{faq.resposta}</p>
+              <p className="mt-3 text-base leading-relaxed text-naf-blue">{faq.resposta}</p>
             </div>
           ))}
         </div>

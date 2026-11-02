@@ -21,16 +21,16 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/RecuperarSenha" element={<RecuperarSenha />} />
-
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/sobre" element={<Sobre />} />
+        <Route path="*" element={<NotFound />} />
+        
         {/* Rotas Logadas */}
         <Route path="/Home" element={<Home />} />
         <Route path="/calculo-pf" element={<CalculoPF />} />
         <Route path="/calculo-pj" element={<CalculoPJ />} />
         <Route path="/comparativo" element={<Comparativo />} />
         <Route path="/historico" element={<Historico />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/sobre" element={<Sobre />} />
-        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
