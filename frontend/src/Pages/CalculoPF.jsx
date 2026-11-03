@@ -343,6 +343,7 @@ function CalculoPF() {
                 </div>
               )}
           </div>
+        </div>
         </main>
         <Footer />
       </div>
