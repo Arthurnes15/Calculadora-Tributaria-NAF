@@ -48,7 +48,7 @@ export default function Historico() {
         {/* Cabeçalho */}
         <div className={`text-center mb-8 transition-all duration-[700ms] ease-out delay-[200ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
           <h1 className="text-3xl font-bold text-[#132436] mb-2">Suas Simulações Salvas</h1>
-          <p className="text-[#B2B2B2] font-medium max-w-xl mx-auto">
+          <p className="text-naf-blue font-medium max-w-xl mx-auto">
             Confira abaixo o histórico de todos os cálculos e comparativos tributários guardados em sua conta.
           </p>
         </div>
@@ -119,7 +119,7 @@ export default function Historico() {
                           {item.melhorOpcao.includes("PJ") ? "PJ" : "PF"}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-right font-bold text-green-600">
+                      <td className="py-4 px-4 text-right font-bold text-green-800">
                         R$ {item.economiaMensal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </td>
                     </tr>

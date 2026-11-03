@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
@@ -8,6 +8,14 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
+  /*
+    As varíaveis abaixo (inputEmailRef e inputPasswordRef), são usadas no alerta das mensagens de erro pelos leitores de tela. O hook useRef pode ser usado particularmente para manipular a DOM. Nesse contexto de acessiblidade, os leitores de tela só conseguem ler as mensagens de erro se os inputs (com erros) estiverem com o atributo focus ativo, portanto, na ocorrência de algum erro, através das variáveis abaixo o atributo focus é ativado nos respectivos inputs.
+
+    Para mais detalhes do hook useRef, consulte sua documentação no link abaixo: 
+    https://react.dev/reference/react/useRef
+  */
+  const inputEmailRef = useRef(null);
+  const inputPasswordRef = useRef(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -19,11 +27,17 @@ export default function Login() {
   const validateForm = () => {
     const newErrors = {};
     if (!email) {
+      inputEmailRef.current.focus();
       newErrors.email = "Por favor, preencha o campo de email.";
     } else if (!email.includes("@") || !email.includes(".")) {
+      inputEmailRef.current.focus();
       newErrors.email = "Por favor, informe um email válido (contendo '@' e '.').";
     }
-    if (!password) newErrors.password = "Por favor, preencha o campo de senha.";
+    if (!password) {
+      inputPasswordRef.current.focus();
+      newErrors.password = "Por favor, preencha o campo de senha.";
+    }
+
     return newErrors;
   };
 
@@ -54,7 +68,7 @@ export default function Login() {
   };
 
   return (
-    <div
+    <article
       className="flex flex-col items-center justify-center min-h-screen bg-naf-light p-4"
     >
       <h1
@@ -64,7 +78,7 @@ export default function Login() {
         CALCULADORA DE IMPOSTO DE RENDA
       </h1>
 
-      <div
+      <main
         className={`w-full max-w-sm p-8 bg-white rounded-2xl shadow-xl transition-all duration-[700ms] ease-out delay-[300ms] border border-naf-gray/30
           ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
       >
@@ -82,13 +96,15 @@ export default function Login() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
             }`}
           >
-            <label className="block mb-2 text-sm font-medium text-naf-blue">
+            <label htmlFor="email" className="block mb-2 text-sm font-medium text-naf-blue">
               Email
             </label>
             <input
+              id="email"
               type="email"
               placeholder="Digite seu email"
               value={email}
+              ref={inputEmailRef}
               onChange={(e) => {
                 setEmail(e.target.value);
                 if (errors.email) {
@@ -98,13 +114,15 @@ export default function Login() {
                   }
                 }
               }}
-              className="w-full px-4 py-2 border border-naf-gray rounded-xl focus:ring-2 focus:ring-naf-red focus:border-transparent outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:-translate-y-1 hover:shadow-md"
+              className={`w-full px-4 py-2 border border-naf-gray rounded-xl focus:ring-2 focus:ring-naf-blue focus:border-transparent outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:-translate-y-1 hover:shadow-md ${errors.email && "focus:ring-naf-red"}`}
+              aria-invalid={errors.email}
+              aria-errormessage="error_email"
             />
-            <div>
-              <p className="mt-1 text-sm text-naf-red font-medium">
-                {errors.email || " "}
+            {errors.email && (
+              <p id="error_email" className="mt-1 text-sm text-naf-red font-medium">
+                {errors.email}
               </p>
-            </div>
+            )}
           </div>
 
           <div
@@ -112,18 +130,22 @@ export default function Login() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
             }`}
           >
-            <label className="block mb-2 text-sm font-medium text-naf-blue">
+            <label htmlFor="password" className="block mb-2 text-sm font-medium text-naf-blue">
               Senha
             </label>
             <input
+              id="password"
               type="password"
               placeholder="Digite sua senha"
               value={password}
+              ref={inputPasswordRef}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-naf-gray rounded-xl focus:ring-2 focus:ring-naf-red focus:border-transparent outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:-translate-y-1 hover:shadow-md"
+              className={`w-full px-4 py-2 border border-naf-gray rounded-xl focus:ring-2 focus:ring-offset-naf-blue focus:border-transparent outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:-translate-y-1 hover:shadow-md ${errors.password && "focus:ring-naf-red"}`}
+              aria-invalid={errors.password}
+              aria-errormessage="error_password"
             />
             {errors.password && (
-              <p className="mt-1 text-sm text-naf-red font-medium">
+              <p id="error_password" className="mt-1 text-sm text-naf-red font-medium">
                 {errors.password}
               </p>
             )}
@@ -136,7 +158,7 @@ export default function Login() {
           >
             <button
               type="submit"
-              className="w-full bg-naf-red text-white font-bold py-3 rounded-xl hover:bg-[#a62b18] transition delay-[80ms] duration-[400ms] ease-in-out hover:scale-105 shadow-md"
+              className="w-full bg-naf-red text-white font-bold py-3 rounded-xl hover:bg-[#a62b18] focus:ring-4 focus:ring-naf-blue outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:scale-105 shadow-md"
             >
               Entrar
             </button>
@@ -144,18 +166,18 @@ export default function Login() {
         </form>
 
         <p
-          className={`text-center text-sm text-naf-gray mt-6 transition-all duration-[700ms] ease-out delay-[1150ms] ${
+          className={`text-center text-sm text-naf-blue mt-6 transition-all duration-[700ms] ease-out delay-[1150ms] ${
             isVisible ? "opacity-100" : "opacity-0"
           }`}
         >
           Não tem conta?{" "}
-          <a href="/Cadastro" className="text-naf-red hover:underline font-bold">
+          <a href="/cadastro" className="text-naf-red hover:underline font-bold">
             Cadastre-se
           </a>
         </p>
 
         <p
-          className={`text-center text-sm text-naf-gray mt-2 transition-all duration-[700ms] ease-out delay-[1250ms] ${
+          className={`text-center text-sm text-naf-blue mt-2 transition-all duration-[700ms] ease-out delay-[1250ms] ${
             isVisible ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -164,7 +186,7 @@ export default function Login() {
             Recuperar Senha
           </a>
         </p>
-      </div>
+      </main>
 
       <h2
         className={`block mb-2 mt-6 text-sm font-medium text-naf-gray p-1 transition-all duration-[700ms] ease-out delay-[1350ms] ${
@@ -172,6 +194,6 @@ export default function Login() {
         }`}
       >
       </h2>
-    </div>
+    </article>
   );
 }
