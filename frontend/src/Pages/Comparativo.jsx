@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
@@ -17,11 +17,13 @@ export default function Comparativo() {
     // ADICIONADO: tooltip e valor do campo de pró-labore/folha (Fator R)
     const [showTooltipFolha, setShowTooltipFolha] = useState(false);
     const [folhaMensal, setFolhaMensal] = useState("");
+    const dataEmissaoRef = useRef(null);
   
   const [mostrarEmail, setMostrarEmail] = useState(false);
   const [email, setEmail] = useState("");
   const [mensagemEnvio, setMensagemEnvio] = useState("");
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [erroPdf, setErroPdf] = useState("");
 
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
@@ -128,8 +130,10 @@ export default function Comparativo() {
       }
 
       setResultado({
+        renda: rendaNum,
+        custos: custosNum,
         pf: { base: basePF, faixa: faixaPF, parcelaDedutivel, imposto: impostoPF },
-        pj: { simples: simplesPJ, aliquota: aliquotaPJ, salarioBase, inss, total: totalPJ },
+        pj: { simples: simplesPJ, aliquota: aliquotaPJ, salarioBase, inss, aliquotaInss: "11%", total: totalPJ },
         maisVantajoso: melhor,
         siglaVencedora: sigla,
         diferenca: economia,
@@ -159,26 +163,112 @@ export default function Comparativo() {
 
   const gerarPDF = async () => {
     setGerandoPdf(true);
+    setErroPdf("");
     const elemento = document.getElementById("resultado-comparativo");
     
     if (!elemento) {
-      console.error("Erro interno: A div do PDF não foi encontrada.");
+      const error = new Error("A área do relatório PDF não foi encontrada.");
+      console.error("Falha ao processar o arquivo PDF:", error);
+      setErroPdf(error.message);
       setGerandoPdf(false);
       return;
     }
 
     try {
+      if (dataEmissaoRef.current) {
+        dataEmissaoRef.current.textContent = `Emitido em: ${new Date().toLocaleString("pt-BR")}`;
+      }
+
       const opcoes = {
         margin:       10,
         filename:     `Comparativo_Tributario_${profissao}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true }, 
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas:  {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          onclone: (documentoClonado) => {
+            const elementos = documentoClonado.querySelectorAll("#resultado-comparativo, #resultado-comparativo *");
+            const canvas = documentoClonado.createElement("canvas");
+            const contexto = canvas.getContext("2d", { willReadFrequently: true });
+            const coresConvertidas = new Map();
+            if (!contexto) {
+              throw new Error("Não foi possível preparar as cores do relatório para exportação.");
+            }
+
+            const converterCor = (cor) => {
+              if (!cor.includes("oklch")) return cor;
+              if (coresConvertidas.has(cor)) return coresConvertidas.get(cor);
+
+              contexto.clearRect(0, 0, 1, 1);
+              contexto.fillStyle = cor;
+              contexto.fillRect(0, 0, 1, 1);
+              const [vermelho, verde, azul, alfa] = contexto.getImageData(0, 0, 1, 1).data;
+              const corConvertida = `rgba(${vermelho}, ${verde}, ${azul}, ${alfa / 255})`;
+              coresConvertidas.set(cor, corConvertida);
+              return corConvertida;
+            };
+
+            const propriedadesDeCor = [
+              "color",
+              "backgroundColor",
+              "borderTopColor",
+              "borderRightColor",
+              "borderBottomColor",
+              "borderLeftColor",
+              "outlineColor",
+              "textDecorationColor"
+            ];
+
+            elementos.forEach((elementoClonado) => {
+              const estilos = documentoClonado.defaultView.getComputedStyle(elementoClonado);
+              propriedadesDeCor.forEach((propriedade) => {
+                const cor = estilos[propriedade];
+                if (cor.includes("oklch")) {
+                  const propriedadeCss = propriedade.replace(/[A-Z]/g, (letra) => `-${letra.toLowerCase()}`);
+                  elementoClonado.style.setProperty(propriedadeCss, converterCor(cor), "important");
+                }
+              });
+
+              ["boxShadow", "textShadow"].forEach((propriedade) => {
+                const sombra = estilos[propriedade];
+                if (sombra.includes("oklch")) {
+                  const propriedadeCss = propriedade.replace(/[A-Z]/g, (letra) => `-${letra.toLowerCase()}`);
+                  elementoClonado.style.setProperty(
+                    propriedadeCss,
+                    sombra.replace(/oklch\([^)]*\)/g, converterCor),
+                    "important"
+                  );
+                }
+              });
+            });
+          }
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'] }
       };
 
-      await html2pdf().set(opcoes).from(elemento).save();
+      const pdf = await html2pdf().set(opcoes).from(elemento).outputPdf("blob");
+      if (!(pdf instanceof Blob) || pdf.size === 0) {
+        throw new Error("O arquivo PDF gerado está vazio.");
+      }
+
+      const urlPdf = URL.createObjectURL(pdf);
+      const linkDownload = document.createElement("a");
+      linkDownload.href = urlPdf;
+      linkDownload.download = `Comparativo_Tributario_${profissao}.pdf`;
+      linkDownload.style.display = "none";
+      document.body.appendChild(linkDownload);
+      linkDownload.click();
+      linkDownload.remove();
+      window.setTimeout(() => URL.revokeObjectURL(urlPdf), 1000);
     } catch (error) {
       console.error("Falha ao processar o arquivo PDF:", error);
+      setErroPdf(
+        error instanceof Error
+          ? `Não foi possível gerar o PDF: ${error.message}`
+          : "Não foi possível gerar o PDF. Tente novamente."
+      );
     } finally {
       setGerandoPdf(false);
     }
@@ -304,11 +394,44 @@ export default function Comparativo() {
           ) : resultado && (
             <div className="border-t border-gray-200 bg-gray-50 rounded-b-3xl">
               <div id="resultado-comparativo" className="p-6 md:p-8 bg-[#ffffff]">
+                <header className="mb-6 border-b-2 border-[#132436] pb-4 text-center">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#CD371F]">Núcleo de Apoio Contábil e Fiscal</p>
+                  <h2 className="mt-1 text-xl font-extrabold text-[#132436]">NAF | Universidade Christus</h2>
+                  <p ref={dataEmissaoRef} className="mt-2 text-xs text-gray-600">Data e hora registradas na emissão do PDF.</p>
+                  <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                    Os valores apresentados são estimativas para fins informativos e não substituem orientação contábil ou fiscal.
+                  </p>
+                </header>
+
                 <div className="mb-8 p-6 rounded-2xl border-2 text-center shadow-sm" style={{ borderColor: resultado.siglaVencedora === 'PJ' ? '#22c55e' : '#3b82f6', backgroundColor: resultado.siglaVencedora === 'PJ' ? '#f0fdf4' : '#eff6ff' }}>
                   <h3 className="text-xl font-bold text-[#1f2937] mb-1">A melhor opção para você é:</h3>
                   <p className="text-3xl font-extrabold mb-2" style={{ color: resultado.siglaVencedora === 'PJ' ? '#16a34a' : '#2563eb' }}>{resultado.maisVantajoso}</p>
                   <p className="text-[#374151] font-medium">Atuando como {resultado.siglaVencedora}, você tem uma <span className="font-bold underline decoration-2">economia de R$ {resultado.diferenca.toFixed(2)}</span> todos os meses.</p>
                 </div>
+
+                <section className="mb-8 rounded-xl border border-gray-200 p-5">
+                  <h3 className="mb-4 text-center font-bold uppercase tracking-wider text-sm text-[#132436]">Comparativo mensal de tributos</h3>
+                  <div className="space-y-4">
+                    {[
+                      { nome: "Pessoa Física (PF)", valor: resultado.pf.imposto, cor: "#3b82f6" },
+                      { nome: "Pessoa Jurídica (PJ)", valor: resultado.pj.total, cor: "#16a34a" }
+                    ].map((item) => {
+                      const maiorValor = Math.max(resultado.pf.imposto, resultado.pj.total, 1);
+                      return (
+                        <div key={item.nome}>
+                          <div className="mb-1 flex justify-between gap-3 text-sm">
+                            <span className="font-semibold text-[#374151]">{item.nome}</span>
+                            <span className="font-bold text-[#132436]">R$ {item.valor.toFixed(2)}</span>
+                          </div>
+                          <div className="h-5 overflow-hidden rounded-full bg-gray-100">
+                            <div className="h-full rounded-full" style={{ width: `${(item.valor / maiorValor) * 100}%`, backgroundColor: item.cor }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-center text-xs text-gray-500">Comparação dos valores mensais estimados na mesma escala.</p>
+                </section>
 
                 <h4 className="text-center font-bold text-[#132436] mb-4 uppercase tracking-wider text-sm">Resumo Detalhado dos Cálculos</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -339,13 +462,55 @@ export default function Comparativo() {
                     <div className="mt-5 pt-3 border-t border-[#e5e7eb] flex justify-between items-end"><span className="font-bold text-[#132436]">Custo Mensal:</span><span className="text-2xl font-black text-[#CD371F]">R$ {resultado.pj.total.toFixed(2)}</span></div>
                   </div>
                 </div>
+
+                <section className="mt-8" style={{ breakBefore: "page" }}>
+                  <h3 className="mb-3 text-center font-bold uppercase tracking-wider text-sm text-[#132436]">Memória de cálculo mensal</h3>
+                  <div className="overflow-hidden rounded-xl border border-gray-200">
+                    <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                      <thead className="bg-[#132436] text-white">
+                        <tr>
+                          <th className="p-3">Tributo</th>
+                          <th className="p-3">Base de cálculo</th>
+                          <th className="p-3">Alíquota aplicada</th>
+                          <th className="p-3 text-right">Valor estimado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 text-gray-700">
+                        <tr>
+                          <td className="p-3 font-semibold">IRPF (PF)</td>
+                          <td className="p-3">R$ {resultado.pf.base.toFixed(2)}</td>
+                          <td className="p-3">{resultado.pf.faixa} (parcela a deduzir: R$ {resultado.pf.parcelaDedutivel.toFixed(2)})</td>
+                          <td className="p-3 text-right font-semibold">R$ {resultado.pf.imposto.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-3 font-semibold">Simples Nacional (PJ)</td>
+                          <td className="p-3">R$ {resultado.renda.toFixed(2)} (faturamento)</td>
+                          <td className="p-3">{resultado.pj.aliquota}{resultado.anexo ? ` (Anexo ${resultado.anexo})` : ""}</td>
+                          <td className="p-3 text-right font-semibold">R$ {resultado.pj.simples.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-3 font-semibold">INSS sobre pró-labore (PJ)</td>
+                          <td className="p-3">R$ {resultado.pj.salarioBase.toFixed(2)}</td>
+                          <td className="p-3">{resultado.pj.aliquotaInss}</td>
+                          <td className="p-3 text-right font-semibold">R$ {resultado.pj.inss.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Base PF = faturamento de R$ {resultado.renda.toFixed(2)} menos custos dedutíveis de R$ {resultado.custos.toFixed(2)}.
+                    O IRPF considera a faixa e a parcela a deduzir exibidas acima.
+                    {resultado.fatorR !== undefined && ` Fator R de ${(resultado.fatorR * 100).toFixed(2)}%, aplicado ao Anexo ${resultado.anexo}.`}
+                  </p>
+                </section>
               </div>
 
               <div className="px-6 md:px-8 pb-8 pt-4 flex flex-col gap-4 border-t border-gray-200">
                 <button onClick={gerarPDF} disabled={gerandoPdf} className={`w-full bg-[#132436] text-white font-bold py-3 rounded-xl transition-all duration-[400ms] shadow-md flex items-center justify-center gap-2 cursor-pointer ${gerandoPdf ? 'opacity-70 cursor-wait' : 'hover:bg-[#0c1825] hover:-translate-y-1'}`}>
                   <svg className={`w-5 h-5 ${gerandoPdf ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                  {gerandoPdf ? "Processando e Baixando PDF..." : "Baixar Relatório Oficial em PDF"}
+                  {gerandoPdf ? "Gerando PDF..." : "Baixar Relatório Oficial em PDF"}
                 </button>
+                {erroPdf && <p role="alert" className="text-center text-sm font-medium text-[#CD371F]">{erroPdf}</p>}
 
                 <div className="text-center mt-2">
                   <button onClick={() => setMostrarEmail(!mostrarEmail)} className="text-sm font-bold text-gray-500 hover:text-[#132436] transition-colors underline cursor-pointer bg-transparent border-none">Deseja enviar os resultados para o seu e-mail?</button>
