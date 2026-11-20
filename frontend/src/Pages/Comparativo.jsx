@@ -4,6 +4,8 @@ import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import html2pdf from "html2pdf.js";
 import api from "../services/api";
+ // ADICIONADO: cálculo do Fator R e formatação da alíquota
+import { calcularFatorR, formatarAliquota } from "../utils/fatorR";
 
 export default function Comparativo() {
   const [renda, setRenda] = useState("");
@@ -15,8 +17,11 @@ export default function Comparativo() {
   const [showTooltipCustos, setShowTooltipCustos] = useState(false);
   const [profissao, setProfissao] = useState("psicologo");
     // ADICIONADO: tooltip e valor do campo de pró-labore/folha (Fator R)
-    const [showTooltipFolha, setShowTooltipFolha] = useState(false);
-    const [folhaMensal, setFolhaMensal] = useState("");
+  const [showTooltipFolha, setShowTooltipFolha] = useState(false);
+  const [folha12, setFolha12] = useState("");
+   // ADICIONADO: receita bruta dos últimos 12 meses e seu tooltip
+  const [receita12, setReceita12] = useState("");
+  const [showTooltipReceita, setShowTooltipReceita] = useState(false);
   
   const [mostrarEmail, setMostrarEmail] = useState(false);
   const [email, setEmail] = useState("");
@@ -39,14 +44,6 @@ export default function Comparativo() {
 
   // ADICIONADO: profissões que usam Fator R
   const profissoesFatorR = ["medico", "dentista"];
- 
-  // ADICIONADO: Fator R = folha mensal ÷ renda mensal
-  const calcularFatorR = (folha, rendaMensal) => {
-    if (!rendaMensal || rendaMensal <= 0) return null;
-    const fatorR = folha / rendaMensal;
-    const anexo = fatorR >= 0.28 ? "III" : "V";
-    return { fatorR, anexo };
-  };
 
   const handleRendaChange = (e) => {
     const valor = parseFloat(e.target.value);
@@ -71,14 +68,16 @@ export default function Comparativo() {
     // ADICIONADO: Fator R, só para as profissões da lista
     let infoFatorR = null;
     if (profissoesFatorR.includes(profissao)) {
-      const folhaNum = parseFloat(folhaMensal);
-      if (isNaN(folhaNum)) {
-        setResultado("Informe a despesa mensal com pró-labore/folha de pagamento.");
+      const folhaNum = parseFloat(folha12);
+      const receitaNum = parseFloat(receita12);
+      if (isNaN(folhaNum) || folhaNum < 0 || isNaN(receitaNum)) {
+        setResultado("Informe a folha de pagamento (com pró-labore) e a receita bruta dos últimos 12 meses.");
         return;
       }
-      infoFatorR = calcularFatorR(folhaNum, rendaNum);
+     infoFatorR = calcularFatorR(folhaNum, receitaNum);
+
       if (!infoFatorR) {
-        setResultado("A renda mensal deve ser maior que zero.");
+       setResultado("A receita dos últimos 12 meses deve ser maior que zero e de até R$ 4.800.000 (limite do Simples Nacional).");
         return;
       }
     }
@@ -88,8 +87,9 @@ export default function Comparativo() {
         tipoProfissao: profissao,
         faturamento: rendaNum,
         custos: custosNum, 
-         // ADICIONADO: o servidor usa a folha para o Fator R
-        folhaMensal: infoFatorR ? parseFloat(folhaMensal) : undefined
+       // ADICIONADO: o servidor usa a folha e a receita de 12 meses para o Fator R
+       folha12: infoFatorR ? parseFloat(folha12) : undefined,
+       receita12: infoFatorR ? parseFloat(receita12) : undefined
       });
 
       const { impostoPF, impostoPJ, melhorOpcao, economiaMensal } = response.data.calculo;
@@ -112,15 +112,15 @@ export default function Comparativo() {
 
       const siglaVencedora = melhorOpcao.includes("PJ") ? "PJ" : "PF";
 
-            // ADICIONADO: com Fator R, refaz a PJ e a comparação (o backend ainda usa 6%)
+      // ADICIONADO: com Fator R, refaz a PJ e a comparação com a alíquota efetiva
       let simplesPJ = rendaNum * (profissao === "advogado" ? 0.045 : 0.06);
       let totalPJ = impostoPJ;
       let melhor = melhorOpcao;
       let sigla = siglaVencedora;
       let economia = economiaMensal;
       if (infoFatorR) {
-        simplesPJ = rendaNum * (infoFatorR.anexo === "III" ? 0.06 : 0.155);
-        aliquotaPJ = infoFatorR.anexo === "III" ? "6%" : "15,5%";
+        simplesPJ = rendaNum * infoFatorR.aliquotaEfetiva;
+        aliquotaPJ = formatarAliquota(infoFatorR.aliquotaEfetiva);
         totalPJ = simplesPJ + inss;
         sigla = totalPJ < impostoPF ? "PJ" : "PF";
         melhor = sigla === "PJ" ? "Pessoa Jurídica (PJ)" : "Pessoa Física (PF)";
@@ -214,7 +214,7 @@ export default function Comparativo() {
                 <option value="psicologo">Psicólogo(a)</option>
                 <option value="arquiteto">Arquiteto(a)</option>
                 <option value="advogado">Advogado(a)</option>
-                <option value="medico">Medico(a)</option>
+                <option value="medico">Médico(a)</option>
                 <option value="dentista">Dentista</option>
               </select>
             </div>
@@ -264,32 +264,32 @@ export default function Comparativo() {
                 className="w-full border border-gray-300 px-4 py-3 rounded-xl focus:ring-2 focus:ring-[#CD371F] outline-none transition"
               />
             </div>
+            {/* ADICIONADO: campos que só aparecem para profissões com Fator R */}
+{profissoesFatorR.includes(profissao) && (
+  <>
+    <div className="w-full">
+      <div className="relative flex items-center gap-1 mb-2">
+        <label className="text-sm font-medium text-[#132436]">Folha de pagamento + pró-labore dos últimos 12 meses (R$)</label>
+        <button type="button" className="text-gray-400 hover:text-[#132436] focus:outline-none cursor-help" onMouseEnter={() => setShowTooltipFolha(true)} onMouseLeave={() => setShowTooltipFolha(false)}>
+          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+        </button>
+        {showTooltipFolha && <div className="absolute z-10 w-64 p-3 text-sm text-white bg-[#132436] rounded-xl shadow-lg -top-2 left-full ml-2 border border-gray-200">Some, nos 12 meses anteriores, os salários brutos, o pró-labore dos sócios e os encargos (INSS patronal, FGTS, 13º e férias). Não entram distribuição de lucros nem aluguéis.</div>}
+      </div>
+      <input type="number" min="0" value={folha12} onChange={(e) => setFolha12(e.target.value)} placeholder="Ex: 33600" className="w-full border border-gray-300 px-4 py-3 rounded-xl focus:ring-2 focus:ring-[#CD371F] outline-none transition" />
+    </div>
 
-            {/* ADICIONADO: campo que só aparece para profissões com Fator R */}
-            {profissoesFatorR.includes(profissao) && (
-              <div className="w-full">
-                <div className="relative flex items-center gap-1 mb-2">
-                  <label className="text-sm font-medium text-[#132436]">Despesa mensal com pró-labore / folha de pagamento (R$)</label>
-                  <button
-                    type="button"
-                    className="text-gray-400 hover:text-[#132436] focus:outline-none cursor-help"
-                    onMouseEnter={() => setShowTooltipFolha(true)}
-                    onMouseLeave={() => setShowTooltipFolha(false)}
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-                  </button>
-                  {showTooltipFolha && <div className="absolute z-10 w-64 p-3 text-sm text-white bg-[#132436] rounded-xl shadow-lg -top-2 left-full ml-2 border border-gray-200">É o que você paga por mês em salários, encargos e pró-labore. Esse valor dividido pela renda mensal forma o Fator R: com 28% ou mais, aplica-se o Anexo III; abaixo disso, o Anexo V.</div>}
-                </div>
-                <input
-                  type="number"
-                  value={folhaMensal}
-                  onChange={(e) => setFolhaMensal(e.target.value)}
-                  placeholder="Ex: 2800"
-                  className="w-full border border-gray-300 px-4 py-3 rounded-xl focus:ring-2 focus:ring-[#CD371F] outline-none transition"
-                />
-              </div>
-            )}
-
+    <div className="w-full">
+      <div className="relative flex items-center gap-1 mb-2">
+        <label className="text-sm font-medium text-[#132436]">Receita bruta dos últimos 12 meses (R$)</label>
+        <button type="button" className="text-gray-400 hover:text-[#132436] focus:outline-none cursor-help" onMouseEnter={() => setShowTooltipReceita(true)} onMouseLeave={() => setShowTooltipReceita(false)}>
+          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+        </button>
+        {showTooltipReceita && <div className="absolute z-10 w-64 p-3 text-sm text-white bg-[#132436] rounded-xl shadow-lg -top-2 left-full ml-2 border border-gray-200">Total faturado nos 12 meses anteriores, sem descontar despesas nem tributos. Dividindo a folha por esse valor, tem-se o Fator R: com 28% ou mais, Anexo III; abaixo disso, Anexo V.</div>}
+      </div>
+      <input type="number" min="0" value={receita12} onChange={(e) => setReceita12(e.target.value)} placeholder="Ex: 120000" className="w-full border border-gray-300 px-4 py-3 rounded-xl focus:ring-2 focus:ring-[#CD371F] outline-none transition" />
+    </div>
+  </>
+)}
           </div>
 
           <div className="px-6 md:px-8 pb-8">

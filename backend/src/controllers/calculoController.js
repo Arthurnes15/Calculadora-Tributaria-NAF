@@ -1,9 +1,27 @@
 const prisma = require('../config/prisma');
 
+// ADICIONADO: tabelas do Simples Nacional [RBT12 até, alíquota nominal, parcela a deduzir]
+ const ANEXO_III = [
+   [180000, 0.06, 0],
+   [360000, 0.112, 9360],
+   [720000, 0.135, 17640],
+   [1800000, 0.16, 35640],
+   [3600000, 0.21, 125640],
+   [4800000, 0.33, 648000],
+ ];
+ const ANEXO_V = [
+   [180000, 0.155, 0],
+   [360000, 0.18, 4500],
+   [720000, 0.195, 9900],
+   [1800000, 0.205, 17100],
+   [3600000, 0.23, 62100],
+   [4800000, 0.305, 540000],
+ ];
+
 const calculoController = {
   create: async (req, res) => {
     try {
-      const { tipoProfissao, faturamento, custos, folhaMensal } = req.body;
+      const { tipoProfissao, faturamento, custos, folha12, receita12 } = req.body;
       const userId = req.userId;
 
       if (!tipoProfissao || faturamento === undefined) {
@@ -39,15 +57,17 @@ const calculoController = {
       let simples = 0;
       if (tipoProfissao.toLowerCase() === "advogado") {
         simples = rendaNum * 0.045; // Anexo IV: 4,5%
-      } else if (["medico", "dentista"].includes(tipoProfissao.toLowerCase())) {
-       // ADICIONADO: Fator R = folha mensal ÷ faturamento mensal
-       const folhaNum = parseFloat(folhaMensal);
-       if (isNaN(folhaNum) || rendaNum <= 0) {
-         return res.status(400).json({ error: "Informe a despesa mensal com pró-labore/folha e um faturamento maior que zero." });
-       }
-       const fatorR = folhaNum / rendaNum;
-       // Anexo III (6%) se Fator R >= 28%; Anexo V (15,5%) se abaixo
-       simples = rendaNum * (fatorR >= 0.28 ? 0.06 : 0.155);
+      } else if (["medico", "dentista"].includes(tipoProfissao.toLowerCase()) && folha12 !== undefined && receita12 !== undefined) {
+        // ADICIONADO: Fator R = folha de 12 meses ÷ receita bruta de 12 meses
+        const folhaNum = parseFloat(folha12);
+        const receitaNum = parseFloat(receita12);
+        if (isNaN(folhaNum) || folhaNum < 0 || isNaN(receitaNum) || receitaNum <= 0 || receitaNum > 4800000) {
+          return res.status(400).json({ error: "Informe a folha (com pró-labore) e a receita dos últimos 12 meses (receita maior que zero e de até R$ 4.800.000)." });
+        }
+        const fatorR = folhaNum / receitaNum;
+        const tabela = fatorR >= 0.28 ? ANEXO_III : ANEXO_V;
+        const [, nominal, deduzir] = tabela.find(([limite]) => receitaNum <= limite);
+        simples = rendaNum * ((receitaNum * nominal - deduzir) / receitaNum);
       } else {
         // Psicólogo e Arquiteto - Anexo III (Considerando o Fator R ativo no front)
         simples = rendaNum * 0.06; // 6%
