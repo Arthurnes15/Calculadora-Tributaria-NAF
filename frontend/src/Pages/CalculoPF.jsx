@@ -3,7 +3,6 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { calcularFatorR } from "../utils/calcularFatorR";
 
 function CalculoPF() {
   const [renda, setRenda] = useState("");
@@ -48,9 +47,6 @@ function CalculoPF() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Profissões que usam Fator R
-  const profissoesFatorR = ["medico", "dentista"];
-
   const rendaNum = parseFloat(renda);
   const custosNum = parseFloat(custos);
   const folhaNum = parseFloat(folhaMensal);
@@ -77,16 +73,6 @@ function CalculoPF() {
       newErrors.custos = "Por favor, insira valores válidos."; 
     }
 
-    if (profissoesFatorR.includes(profissao)) {
-      if (!folhaNum) {
-        inputFolhaMensalRef.current.focus();
-        newErrors.folhaMensal = "Por favor, insira a despesa mensal com pró-labore/folha de pagamento.";
-      } else if (isNaN(folhaNum)) {
-        inputFolhaMensalRef.current.focus();
-        newErrors.folhaMensal = "Por favor, insira valores válidos."; 
-      }
-    }
-
     return newErrors;
   };
 
@@ -100,18 +86,11 @@ function CalculoPF() {
 
     setErrors({});
 
-    // Fator R, só para as profissões da lista
-    let infoFatorR = null;
-    if (profissoesFatorR.includes(profissao)) {
-      infoFatorR = calcularFatorR(folhaNum, rendaNum);
-    }
-
     try {
       const response = await api.post("/calculos", {
         tipoProfissao: profissao,
         faturamento: rendaNum,
         custos: custosNum,
-        folhaMensal: infoFatorR ? folhaNum : undefined,
       });
 
       const { impostoPF } = response.data.calculo;
@@ -131,8 +110,6 @@ function CalculoPF() {
         faixa,
         imposto: impostoPF,
         parcelaDedutivel,
-        fatorR: infoFatorR?.fatorR,
-        anexo: infoFatorR?.anexo,
       });
 
       setMostrarEmail(false);
@@ -200,7 +177,7 @@ function CalculoPF() {
                   </svg>
                 </button>
                 {showTooltipRenda && (
-                  <div className="absolute z-10 w-64 h-20 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-15 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
+                  <div className="absolute z-10 w-64 h-20 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-12 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
                     É o valor total que você espera receber por mês com o seu trabalho, antes de qualquer desconto.
                   </div>
                 )}
@@ -252,41 +229,6 @@ function CalculoPF() {
               />
               {errors.custos && <p id="erro_custos_dedutiveis" className="text-naf-red text-sm mt-1 font-medium">{errors.custos}</p>}
             </div>
-
-            {/* Campo que só aparece para profissões com Fator R */}
-            {profissoesFatorR.includes(profissao) && (
-              <div>
-                <div className="relative flex items-center gap-1 mb-1">
-                  <label htmlFor="folha_mensal"  className="text-sm font-medium text-naf-blue">Despesa mensal com pró-labore/Folha de pagamento(R$)</label>
-                  <button type="button" 
-                    className="text-naf-gray hover:text-naf-blue outline-none focus:ring-2 focus:ring-naf-blue focus:rounded-2xl" 
-                    onClick={() => setShowTooltipFolha((visible) => !visible)} 
-                    onMouseEnter={() => setShowTooltipFolha(true)} 
-                    onMouseLeave={() => setShowTooltipFolha(false)}
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  {showTooltipFolha && (
-                    <div className="absolute z-10 w-64 h-35 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-15 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
-                      É o que você paga por mês em salários, encargos e pró-labore. Esse valor dividido pela renda mensal bruta forma o Fator R: com 28% ou mais, aplica-se o Anexo III; abaixo disso, o Anexo V.
-                    </div>
-                  )}
-                </div>
-                <input id="folha_mensal"
-                  type="number"
-                  value={folhaMensal} 
-                  ref={inputFolhaMensalRef}
-                  onChange={(e) => setFolhaMensal(e.target.value)} 
-                  placeholder="Ex: 2800" 
-                  className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.folhaMensal ? "focus:ring-naf-red" : ""} outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm`} 
-                  aria-invalid={errors.folhaMensal}
-                  aria-errormessage="erro_folha_mensal"
-                />
-                {errors.folhaMensal && <p id="erro_folha_mensal" className="text-naf-red text-sm mt-1 font-medium">{errors.folhaMensal}</p>}
-              </div>
-            )}
 
             <div className={`transition-all duration-[700ms] ease-out delay-[900ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
               <button onClick={calcularIRPF} className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] hover:scale-105 outline-none focus:ring-4 focus:ring-naf-red  transition-all duration-[400ms] ease-out shadow-md">

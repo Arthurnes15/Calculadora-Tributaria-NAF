@@ -3,7 +3,8 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { calcularFatorR } from "../utils/calcularFatorR";
+ // ADICIONADO: cálculo do Fator R e formatação da alíquota
+import { calcularFatorR, formatarAliquota } from "../utils/fatorR";
 
 export default function CalculoPJ() {
   const [renda, setRenda] = useState("");
@@ -18,10 +19,13 @@ export default function CalculoPJ() {
   const [showTooltipRenda, setShowTooltipRenda] = useState(false);
   // Tooltip e valor do campo de pró-labore/folha (Fator R)
   const [showTooltipFolha, setShowTooltipFolha] = useState(false);
-  const [folhaMensal, setFolhaMensal] = useState("");
+  const [folha12, setFolha12] = useState("");
+  // ADICIONADO: receita bruta dos últimos 12 meses e seu tooltip
+  const [receita12, setReceita12] = useState("");
+  const [showTooltipReceita, setShowTooltipReceita] = useState(false);
+  const [carregando, setCarregando] = useState(false);
 
   const inputRendaMensalRef = useRef(null);
-  const inputFolhaMensalRef = useRef(null);
   const inputEmailRef = useRef(null);
 
   const token = localStorage.getItem("token");
@@ -42,7 +46,6 @@ export default function CalculoPJ() {
   const profissoesFatorR = ["medico", "dentista"];
 
   const rendaNum = parseFloat(renda);
-  const folhaNum = parseFloat(folhaMensal);
 
   const validateForm = () => {
     const newErrors = {};
@@ -56,16 +59,6 @@ export default function CalculoPJ() {
     } else if (isNaN(rendaNum)) {
       inputRendaMensalRef.current.focus();
       newErrors.renda = "Por favor, insira valores válidos."; 
-    }
-
-    if (profissoesFatorR.includes(profissao)) {
-      if (!folhaNum) {
-        inputFolhaMensalRef.current.focus();
-        newErrors.folhaMensal = "Por favor, insira a despesa mensal com pró-labore/folha de pagamento.";
-      } else if (isNaN(folhaNum)) {
-        inputFolhaMensalRef.current.focus();
-        newErrors.folhaMensal = "Por favor, insira valores válidos."; 
-      }
     }
 
     return newErrors;
@@ -84,16 +77,28 @@ export default function CalculoPJ() {
     // Fator R, só para as profissões da lista
     let infoFatorR = null;
     if (profissoesFatorR.includes(profissao)) {
-      infoFatorR = calcularFatorR(folhaNum, rendaNum);
+      const folhaNum = parseFloat(folha12);
+      const receitaNum = parseFloat(receita12);
+      if (isNaN(folhaNum) || folhaNum < 0 || isNaN(receitaNum)) {
+        setResultado("Informe a folha de pagamento (com pró-labore) e a receita bruta dos últimos 12 meses.");
+        return;
+      }
+      infoFatorR = calcularFatorR(folhaNum, receitaNum);
+      if (!infoFatorR) {
+        setResultado("A receita dos últimos 12 meses deve ser maior que zero e de até R$ 4.800.000 (limite do Simples Nacional).");
+        return;
+      }
     }
 
+    setCarregando(true);
     try {
       const response = await api.post("/calculos", {
         tipoProfissao: profissao,
         faturamento: rendaNum,
         custos: 0,
-         // O servidor usa a folha para o Fator R
-        folhaMensal: infoFatorR ? folhaNum : undefined
+        // ADICIONADO: o servidor usa a folha e a receita de 12 meses para o Fator R
+        folha12: infoFatorR ? parseFloat(folha12) : undefined,
+        receita12: infoFatorR ? parseFloat(receita12) : undefined
       });
 
       const { impostoPJ } = response.data.calculo;
@@ -105,10 +110,9 @@ export default function CalculoPJ() {
         simples = rendaNum * 0.045;
         aliquota = "4,5%";
       } else if (infoFatorR) {
-        // Anexo III = 6%, Anexo V = 15,5% (1ª faixa)
-        const taxa = infoFatorR.anexo === "III" ? 0.06 : 0.155;
-        simples = rendaNum * taxa;
-        aliquota = infoFatorR.anexo === "III" ? "6%" : "15,5%";
+        // ADICIONADO: alíquota efetiva pela tabela do anexo e pela receita dos 12 meses
+        simples = rendaNum * infoFatorR.aliquotaEfetiva;
+        aliquota = formatarAliquota(infoFatorR.aliquotaEfetiva);
       } else {
         simples = rendaNum * 0.06;
         aliquota = "6%";
@@ -137,6 +141,8 @@ export default function CalculoPJ() {
       console.error("Erro ao salvar cálculo PJ:", error);
       const msg = error.response?.data?.error || "Erro ao processar cálculo no servidor.";
       setResultado(msg);
+    } finally {
+      setCarregando(false);
     }
   };
 
@@ -175,7 +181,7 @@ export default function CalculoPJ() {
                 <option value="psicologo">Psicólogo(a)</option>
                 <option value="arquiteto">Arquiteto(a)</option>
                 <option value="advogado">Advogado(a)</option>
-                <option value="medico">Medico(a)</option>
+                <option value="medico">Médico(a)</option>
                 <option value="dentista">Dentista</option>
               </select>
             </div>
@@ -195,8 +201,8 @@ export default function CalculoPJ() {
                   </svg>
                 </button>
                 {showTooltipRenda && (
-                  <div className="absolute z-10 w-64 h-20 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-15 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
-                    É o valor total bruto recebido no mês pelas notas fiscais emitidas no seu CNPJ.
+                  <div className="absolute z-10 w-64 h-26 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-12 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
+                   Faturamento do mês que você quer simular. A receita dos últimos 12 meses é pedida à parte, só para o Fator R e a faixa do Simples.
                   </div>
                 )}
               </div>
@@ -213,45 +219,48 @@ export default function CalculoPJ() {
               />
               {errors.renda && <p id="erro_faturamento_mensal" className="text-naf-red text-sm mt-1 font-medium">{errors.renda}</p>}
             </div>  
-
-             {/* Campo que só aparece para profissões com Fator R */}
-             {profissoesFatorR.includes(profissao) && (
+            {/* ADICIONADO: campos que só aparecem para profissões com Fator R */}
+            {profissoesFatorR.includes(profissao) && (
+              <>
                 <div>
                   <div className="relative flex items-center gap-1 mb-1">
-                    <label htmlFor="folha_mensal" className="text-sm font-medium text-naf-blue">Despesa mensal com pró-labore / folha de pagamento (R$)</label>
-                    <button type="button" 
-                      className="text-naf-gray hover:text-naf-blue outline-none focus:ring-2 focus:ring-naf-blue focus:rounded-2xl" 
-                      onClick={() => setShowTooltipFolha((visible) => !visible)} 
-                      onMouseEnter={() => setShowTooltipFolha(true)} 
-                      onMouseLeave={() => setShowTooltipFolha(false)}
-                    >
+                    <label className="text-sm font-medium text-naf-blue">Folha de pagamento + pró-labore dos últimos 12 meses (R$)</label>
+                    <button type="button" className="text-naf-gray hover:text-naf-blue focus:outline-none" onMouseEnter={() => setShowTooltipFolha(true)} onMouseLeave={() => setShowTooltipFolha(false)}>
                       <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
                     </button>
                     {showTooltipFolha && (
-                      <div className="absolute z-10 w-64 h-35 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-15 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
-                        É o que você paga por mês em salários, encargos e pró-labore. Esse valor dividido pelo faturamento mensal forma o Fator R: com 28% ou mais, aplica-se o Anexo III; abaixo disso, o Anexo V.
+                      <div className="absolute z-10 w-64 h-30 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-12 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
+                        Some, nos 12 meses anteriores, os salários brutos, o pró-labore dos sócios e os encargos (INSS patronal, FGTS, 13º e férias). Não entram distribuição de lucros nem aluguéis.
                       </div>
                     )}
                   </div>
-                  <input id="folha_mensal" 
-                    type="number" 
-                    value={folhaMensal} 
-                    ref={inputFolhaMensalRef}
-                    onChange={(e) => setFolhaMensal(e.target.value)} 
-                    placeholder="Ex: 2800" 
-                    className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.folhaMensal ? "focus:ring-naf-red" : ""} outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm`}
-                    aria-invalid={errors.folhaMensal}
-                    aria-errormessage="erro_folha_mensal" 
-                  />
-                  {errors.folhaMensal && <p id="erro_folha_mensal" className="text-naf-red text-sm mt-1 font-medium">{errors.folhaMensal}</p>}
-                </div> 
-              )}
+                  <input type="number" min="0" value={folha12} onChange={(e) => setFolha12(e.target.value)} placeholder="Ex: 33600" className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm" />
+                </div>
+
+                <div>
+                  <div className="relative flex items-center gap-1 mb-1">
+                    <label className="text-sm font-medium text-naf-blue">Receita bruta dos últimos 12 meses (R$)</label>
+                    <button type="button" className="text-naf-gray hover:text-naf-blue focus:outline-none" onMouseEnter={() => setShowTooltipReceita(true)} onMouseLeave={() => setShowTooltipReceita(false)}>
+                      <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {showTooltipReceita && (
+                      <div className="absolute z-10 w-64 h-36 p-3 text-sm text-white bg-naf-blue rounded-xl shadow-lg left-12 bottom-8 lg:top-2 lg:left-full ml-2 border border-naf-gray/30">
+                        Total faturado nos 12 meses anteriores, sem descontar despesas nem tributos. Dividindo a folha por esse valor, tem-se o Fator R: com 28% ou mais, Anexo III; abaixo disso, Anexo V.
+                      </div>
+                    )}
+                  </div>
+                  <input type="number" min="0" value={receita12} onChange={(e) => setReceita12(e.target.value)} placeholder="Ex: 120000" className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm" />
+                </div>
+              </>
+            )}
 
             <div className={`transition-all duration-[700ms] ease-out delay-[800ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
-              <button onClick={calcularPJ} className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] hover:scale-105 focus:ring-4 focus:ring-naf-red outline-none transition-all duration-[400ms] ease-out shadow-md">
-                Calcular
+              <button onClick={calcularPJ} disabled={carregando} className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] hover:scale-105 transition-all duration-[400ms] ease-out shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100">
+                 {carregando ? "Calculando..." : "Calcular"}
               </button>
             </div>
 
