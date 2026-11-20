@@ -61,7 +61,7 @@ export default function Landing() {
             </button>
             <button 
               onClick={() => navigate("/cadastro")}
-              className="bg-naf-red text-white px-5 py-2 rounded-lg font-bold hover:bg-[#a62b18] transition shadow-md hover:scale-105 cursor-pointer"
+              className="shrink-0 bg-naf-red text-white px-3 py-2 rounded-lg font-bold hover:bg-[#a62b18] transition shadow-md hover:scale-105 cursor-pointer"
             >
               Criar Conta
             </button>
@@ -100,7 +100,7 @@ export default function Landing() {
         <section id="faq-section" className="w-full py-20 px-6 bg-naf-light">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl font-bold text-center text-naf-blue mb-2">Dúvidas Frequentes (FAQ)</h2>
-            <p className="text-center text-naf-gray mb-10 font-medium">Entenda como a nossa ferramenta pode ajudar na sua rotina</p>
+            <p className="text-center text-mist-800 mb-10 font-medium">Entenda como a nossa ferramenta pode ajudar na sua rotina</p>
 
             <div className="space-y-4">
               {faqs.map((faq, index) => (
@@ -110,7 +110,7 @@ export default function Landing() {
                 >
                   <button
                     onClick={() => toggleFaq(index)}
-                    className="w-full flex justify-between items-center p-6 text-left focus:outline-none hover:bg-gray-50 transition cursor-pointer"
+                    className={`w-full flex justify-between items-center p-6 text-left ${faqAberto === index ? "focus: border-3 border-naf-blue border-b-0 focus:rounded-t-2xl" : "focus:border-3 focus:border-naf-blue rounded-2xl"} outline-none hover:bg-gray-50 transition cursor-pointer`}
                   >
                     <span className="font-bold text-naf-blue text-lg">{faq.pergunta}</span>
                     <svg 
@@ -122,7 +122,7 @@ export default function Landing() {
                   </button>
                   
                   <div 
-                    className={`px-6 text-gray-700 text-sm md:text-base leading-relaxed overflow-hidden transition-all duration-300 ease-in-out ${faqAberto === index ? 'max-h-40 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}
+                    className={`px-6 text-gray-700 text-sm md:text-base leading-relaxed overflow-hidden transition-all duration-300 ease-in-out ${faqAberto === index ? 'max-h-40 pb-6 opacity-100 border-3 border-naf-blue border-t-0 rounded-b-2xl' : 'max-h-0 opacity-0'}`}
                   >
                     {faq.resposta}
                   </div>

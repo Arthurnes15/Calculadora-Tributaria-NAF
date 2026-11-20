@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 export default function Home() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
+  const [errors, setErrors] = useState({});
   const token = localStorage.getItem("token");
 
   const [formData, setFormData] = useState({
@@ -14,6 +15,15 @@ export default function Home() {
     mensagem: "",
   });
   const [enviando, setEnviando] = useState(false);
+  /*
+    As variáveis abaixo (inputNomeRef, inputEmailRef, inputMensagemRef), são usadas no alerta das mensagens de erro pelos leitores de tela. O hook useRef pode ser usado particularmente para manipular a DOM. Nesse contexto de acessiblidade, os leitores de tela só conseguem ler as mensagens de erro se os inputs (com erros) estiverem com o atributo focus ativo, portanto, na ocorrência de algum erro, através das variáveis abaixo o atributo focus é ativado nos respectivos inputs.
+  
+    Para mais detalhes do hook useRef, consulte sua documentação no link abaixo: 
+    https://react.dev/reference/react/useRef
+  */
+  const inputNomeRef = useRef(null);
+  const inputEmailRef = useRef(null);
+  const inputMensagemRef = useRef(null);
 
   useEffect(() => {
     if (!token) {
@@ -32,12 +42,45 @@ export default function Home() {
     navigate(path);
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.nome) {
+      inputNomeRef.current.focus();
+      newErrors.nome = "Por favor, preencha o campo de nome.";
+    }
+  
+    if (!formData.email) {
+      inputEmailRef.current.focus();
+      newErrors.email = "Por favor, preencha o campo de email.";
+    } else if (!formData.email.includes("@") || !formData.email.includes(".")) {
+      inputEmailRef.current.focus();
+      newErrors.email = "Por favor, insira um e-mail válido"; 
+    }
+
+    if (!formData.mensagem) {
+      inputMensagemRef.current.focus();
+      newErrors.mensagem = "Por favor, preencha o campo de mensagem";
+    }
+
+    return newErrors;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const formErrors = validateForm();
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
+    setErrors({});
+
     setEnviando(true);
 
     try {
@@ -72,7 +115,7 @@ export default function Home() {
         <section className="w-full max-w-6xl mb-16">
           <div className={`text-center mb-10 transition-all duration-[700ms] ease-out delay-[200ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
             <h1 className="text-4xl font-bold text-naf-blue mb-3">Painel Tributário</h1>
-            <p className="text-naf-gray font-medium text-lg max-w-2xl mx-auto">
+            <p className="text-naf-blue font-medium text-lg max-w-2xl mx-auto">
               Simule e compare regimes de tributação de forma rápida. Escolha a modalidade abaixo para começar:
             </p>
           </div>
@@ -85,11 +128,11 @@ export default function Home() {
                   <svg className="w-6 h-6 text-naf-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                 </div>
                 <h3 className="text-xl font-bold text-naf-blue mb-2">Pessoa Física (PF)</h3>
-                <p className="text-sm text-naf-gray mb-6">
+                <p className="text-sm text-naf-blue mb-6">
                   Cálculo baseado na tabela do IRPF mensal. Permite abater despesas dedutíveis (Livro Caixa) da sua base de cálculo.
                 </p>
               </div>
-              <button onClick={() => handleNavigate("/calculo-pf")} className="w-full py-3 bg-naf-blue text-white font-medium rounded-xl hover:bg-[#0c1825] transition-colors cursor-pointer">
+              <button onClick={() => handleNavigate("/calculo-pf")} className="w-full py-3 bg-naf-blue text-white font-medium rounded-xl hover:bg-[#0c1825] focus:ring-4 focus:ring-naf-red outline-none transition-colors cursor-pointer">
                 Simular PF
               </button>
             </div>
@@ -101,11 +144,11 @@ export default function Home() {
                   <svg className="w-6 h-6 text-naf-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                 </div>
                 <h3 className="text-xl font-bold text-naf-blue mb-2">Pessoa Jurídica (PJ)</h3>
-                <p className="text-sm text-naf-gray mb-6">
+                <p className="text-sm text-naf-blue mb-6">
                   Cálculo focado no Simples Nacional e Contribuição Previdenciária (INSS) sobre o pró-labore da sua categoria.
                 </p>
               </div>
-              <button onClick={() => handleNavigate("/calculo-pj")} className="w-full py-3 bg-naf-blue text-white font-medium rounded-xl hover:bg-[#0c1825] transition-colors cursor-pointer">
+              <button onClick={() => handleNavigate("/calculo-pj")} className="w-full py-3 bg-naf-blue text-white font-medium rounded-xl hover:bg-[#0c1825] focus:ring-4 focus:ring-naf-red outline-none transition-colors cursor-pointer">
                 Simular PJ
               </button>
             </div>
@@ -118,11 +161,11 @@ export default function Home() {
                   <svg className="w-6 h-6 text-naf-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 </div>
                 <h3 className="text-xl font-bold text-naf-blue mb-2">Comparativo Completo</h3>
-                <p className="text-sm text-naf-gray mb-6">
+                <p className="text-sm text-naf-blue mb-6">
                   Analise PF e PJ lado a lado. Descubra a opção mais vantajosa para sua renda e gere um relatório em PDF.
                 </p>
               </div>
-              <button onClick={() => handleNavigate("/comparativo")} className="w-full py-3 bg-naf-red text-white font-bold rounded-xl hover:bg-[#a62b18] transition-colors cursor-pointer">
+              <button onClick={() => handleNavigate("/comparativo")} className="w-full py-3 bg-naf-red text-white font-bold rounded-xl hover:bg-[#a62b18] focus:ring-4 focus:ring-naf-blue outline-none transition-colors cursor-pointer">
                 Gerar Comparativo
               </button>
             </div>
@@ -152,7 +195,7 @@ export default function Home() {
                   <tbody>
                     <tr className="bg-gray-50 border-b border-naf-gray/20">
                       <td className="py-2 px-3">Até 2.428,80</td>
-                      <td className="py-2 px-3 font-semibold text-green-600">Isento</td>
+                      <td className="py-2 px-3 font-semibold text-green-800">Isento</td>
                       <td className="py-2 px-3">—</td>
                     </tr>
                     <tr className="border-b border-naf-gray/20">
@@ -207,49 +250,61 @@ export default function Home() {
         <section className={`w-full max-w-2xl bg-white rounded-3xl shadow-lg border border-naf-gray/20 p-8 mb-4 transition-all duration-[700ms] ease-out delay-[1200ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-naf-blue">Fale com o NAF</h2>
-            <p className="text-sm text-naf-gray mt-1">Sua situação é muito complexa? Envie uma mensagem para nossa equipe.</p>
+            <p className="text-sm text-naf-blue mt-1">Sua situação é muito complexa? Envie uma mensagem para nossa equipe.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 text-left">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-naf-blue mb-1">Nome Completo</label>
+                <label htmlFor="full_name" className="block text-sm font-medium text-naf-blue mb-1">Nome Completo</label>
                 <input
+                  id="full_name"
                   type="text"
                   name="nome"
                   value={formData.nome}
+                  ref={inputNomeRef}
                   onChange={handleChange}
-                  required
-                  className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition"
+                  className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.nome ? "focus:ring-naf-red" : ""} outline-none transition`}
+                  aria-invalid={errors.nome}
+                  aria-errormessage="erro_nome"
                 />
+                {errors.nome && <p id="erro_nome" className="text-naf-red text-sm mt-1 font-medium">{errors.nome}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-naf-blue mb-1">E-mail</label>
+                <label htmlFor="email" className="block text-sm font-medium text-naf-blue mb-1">E-mail</label>
                 <input
+                  id="email"
                   type="email"
                   name="email"
                   value={formData.email}
+                  ref={inputEmailRef}
                   onChange={handleChange}
-                  required
-                  className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition"
+                  className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.email ? "focus:ring-naf-red" : ""} outline-none transition`}
+                  aria-invalid={errors.email}
+                  aria-errormessage="erro_email"
                 />
+                {errors.email && <p id="erro_email" className="text-naf-red text-sm mt-1 font-medium">{errors.email}</p>}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-naf-blue mb-1">Sua Mensagem / Dúvida</label>
+              <label htmlFor="message" className="block text-sm font-medium text-naf-blue mb-1">Sua Mensagem / Dúvida</label>
               <textarea
+                id="message"
                 name="mensagem"
                 value={formData.mensagem}
+                ref={inputMensagemRef}
                 onChange={handleChange}
-                required
                 rows="3"
-                className="w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-red outline-none transition resize-none"
+                className={`w-full border border-naf-gray px-4 py-2 rounded-xl focus:ring-2 focus:ring-naf-blue ${errors.mensagem ? "focus:ring-naf-red" : ""} outline-none transition resize-none`}
+                aria-invalid={errors.mensagem}
+                aria-errormessage="erro_mensagem"
               ></textarea>
+              {errors.mensagem && <p id="erro_mensagem" className="text-naf-red text-sm mt-1 font-medium">{errors.mensagem}</p>}
             </div>
             <button
               type="submit"
               disabled={enviando}
-              className={`cursor-pointer w-full bg-naf-blue text-white py-3 rounded-xl hover:bg-[#0c1825] transition-all duration-[400ms] ease-out text-base font-bold shadow-md ${enviando ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
+              className={`cursor-pointer w-full bg-naf-blue text-white py-3 rounded-xl hover:bg-[#0c1825] focus:ring-4 focus:ring-naf-red outline-none transition-all duration-[400ms] ease-out text-base font-bold shadow-md ${enviando ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
             >
               {enviando ? "Enviando para o NAF..." : "Enviar Mensagem"}
             </button>

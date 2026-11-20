@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function RecuperarSenha() {
@@ -6,6 +6,8 @@ export default function RecuperarSenha() {
   const [error, setError] = useState("");
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
+
+  const inputEmailRef = useRef(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -16,10 +18,12 @@ export default function RecuperarSenha() {
 
   const validateForm = () => {
     if (!email) {
+      inputEmailRef.current.focus();
       setError("Por favor, preencha o campo de email.");
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
+      inputEmailRef.current.focus();
       setError("Por favor, insira um formato de email válido.");
       return false;
     }
@@ -60,7 +64,7 @@ export default function RecuperarSenha() {
         </h2>
 
         <p
-          className={`text-center text-sm text-naf-gray mb-6 transition-all duration-[700ms] ease-out delay-[300ms]
+          className={`text-center text-sm text-naf-blue mb-6 transition-all duration-[700ms] ease-out delay-[300ms]
             ${isVisible ? "opacity-100" : "opacity-0"}`}
         >
           Informe seu email e enviaremos as instruções para redefinir sua senha de acesso.
@@ -71,20 +75,24 @@ export default function RecuperarSenha() {
             className={`transition-all duration-[700ms] ease-out delay-[400ms]
               ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
           >
-            <label className="block mb-2 text-sm font-medium text-naf-blue">
+            <label htmlFor="email" className="block mb-2 text-sm font-medium text-naf-blue">
               Email Cadastrado
             </label>
             <input
+              id="email"
               type="email"
               placeholder="Digite seu email"
               value={email}
+              ref={inputEmailRef}
               onChange={(e) => {
                 setEmail(e.target.value);
                 if (error) setError("");
               }}
-              className="w-full px-4 py-2 border border-naf-gray rounded-xl focus:ring-2 focus:ring-naf-red focus:border-transparent outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm"
+              className={`w-full px-4 py-2 border border-naf-gray rounded-xl focus:ring-2 focus:ring-naf-blue ${error ? "focus:ring-naf-red" : ""} outline-none transition delay-[80ms] duration-[400ms] ease-in-out hover:shadow-sm`}
+              aria-invalid={error}
+              aria-errormessage="error_email"
             />
-            {error && <p className="mt-1 text-sm text-naf-red font-medium">{error}</p>}
+            {error && <p id="error_email" className="mt-1 text-sm text-naf-red font-medium">{error}</p>}
           </div>
 
           <div
@@ -93,7 +101,7 @@ export default function RecuperarSenha() {
           >
             <button
               type="submit"
-              className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] transition duration-[250ms] ease-in-out hover:scale-105 shadow-md cursor-pointer"
+              className="w-full bg-naf-blue text-white font-bold py-3 rounded-xl hover:bg-[#0c1825] focus:ring-4 focus:ring-naf-red outline-none transition duration-[250ms] ease-in-out hover:scale-105 shadow-md cursor-pointer"
             >
               Enviar Instruções
             </button>
@@ -101,7 +109,7 @@ export default function RecuperarSenha() {
         </form>
 
         <p
-          className={`text-center text-sm text-naf-gray mt-6 transition-all duration-[700ms] ease-out delay-[600ms]
+          className={`text-center text-sm text-naf-blue mt-6 transition-all duration-[700ms] ease-out delay-[600ms]
             ${isVisible ? "opacity-100" : "opacity-0"}`}
         >
           Lembrou sua senha?{" "}
